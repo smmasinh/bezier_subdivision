@@ -136,12 +136,79 @@ void Bezier_patch::position_normal(float _u, float _v, vec3 &_p, vec3 &_n) const
     vec3 p(0.0);
     vec3 du(0.0);
     vec3 dv(0.0);
-    vec3 n(0.0);
+    
+    auto B = [](int i, float t) -> float {
+        switch(i){
+            case 0: return (1-t)*(1-t)*(1-t);
+            case 1: return 3*t*(1-t)*(1-t);
+            case 2: return 3*t*t*(1-t);
+            case 3: return t*t*t;
+        }
+        return 0.0f;
+    };
 
+    auto dB = [](int i, float t) -> float { 
+        switch(i){
+            case 0: return -3*(1-t)*(1-t);
+            case 1: return 3*(1-t)*(1-3*t);
+            case 2: return 3*t*(2-3*t);
+            case 3: return 3*t*t;
+        }
+        return 0.0f;
+    };
 
-    // copy resulting position and normal to output variables
+    if(!use_de_Casteljau_)
+    {
+        for(int i=0;i<4;i++){
+            for(int j=0;j<4;j++){
+                float bu = B(i,_u);
+                float bv = B(j,_v);
+                p += bu*bv*control_points_[i][j];
+
+                du += dB(i,_u)*bv*control_points_[i][j];
+                dv += bu*dB(j,_v)*control_points_[i][j];
+            }
+        }
+    }
+    else
+    {
+        vec3 tmp[4];
+        vec3 tmp_du[4];
+        for(int i=0;i<4;i++)
+        {
+            vec3 a0 = (1.0f - _v) * control_points_[i][0] + _v * control_points_[i][1];
+            vec3 a1 = (1.0f - _v) * control_points_[i][1] + _v * control_points_[i][2];
+            vec3 a2 = (1.0f - _v) * control_points_[i][2] + _v * control_points_[i][3];
+
+            vec3 b0 = (1.0f - _v) * a0 + _v * a1;
+            vec3 b1 = (1.0f - _v) * a1 + _v * a2;
+
+            tmp[i]    = (1.0f - _v) * b0 + _v * b1;
+            tmp_du[i] = 3.0f * (b1 - b0);
+        }
+
+        vec3 a0 = (1.0f - _u) * tmp[0] + _u * tmp[1];
+        vec3 a1 = (1.0f - _u) * tmp[1] + _u * tmp[2];
+        vec3 a2 = (1.0f - _u) * tmp[2] + _u * tmp[3];
+
+        vec3 b0 = (1.0f - _u) * a0 + _u * a1;
+        vec3 b1 = (1.0f - _u) * a1 + _u * a2;
+
+        p  = (1.0f - _u) * b0 + _u * b1;
+        du = 3.0f * (b1 - b0);
+
+        vec3 dtmp0 = tmp_du[0];
+        vec3 dtmp1 = tmp_du[1];
+        vec3 dtmp2 = tmp_du[2];
+        vec3 dtmp3 = tmp_du[3];
+
+        vec3 da0 = (1.0f - _u) * tmp_du[0] + _u * tmp_du[1];
+        vec3 da1 = (1.0f - _u) * tmp_du[1] + _u * tmp_du[2];
+        dv = (1.0f - _u) * da0 + _u * da1;
+    }
+
     _p = p;
-    _n = n;
+    _n = normalize(cross(du,dv));
 }
 
 //-----------------------------------------------------------------------------
@@ -184,24 +251,43 @@ void Bezier_patch::tessellate(unsigned int _resolution)
      */
 
 
-    // DELETE ME BEGIN
+    float step = 1.0f / (N-1);
 
-    // This code is just to see something after finishing the first task
-    // it samples the bezier patch at 4 uv-positions (0,25,0.25),(0.25,0.75),(0.75,0.25) and (0.75,0.75)
-    for (unsigned int i = 0; i < 2; ++i)
+    // 1) evaluate points and normals
+    for(unsigned int i=0;i<N;i++)
     {
-        for (unsigned int j = 0; j < 2; ++j)
+        float u = i*step;
+        for(unsigned int j=0;j<N;j++)
         {
-            float u = i == 0 ? 0.25 : 0.75;
-            float v = j == 0 ? 0.25 : 0.75;
-            vec3 p, n;
-            position_normal(u, v, p, n);
+            float v = j*step;
+            vec3 p,n;
+            position_normal(u,v,p,n);
             surface_vertices_.push_back(p);
             surface_normals_.push_back(n);
         }
     }
-    // DELETE ME END
 
+    // 2) create triangles
+    for(unsigned int i=0;i<N-1;i++)
+    {
+        for(unsigned int j=0;j<N-1;j++)
+        {
+            unsigned int idx = i*N + j;
+            unsigned int idx_right = idx + 1;
+            unsigned int idx_down = idx + N;
+            unsigned int idx_diag = idx + N + 1;
+
+            // triangle 1
+            surface_triangles_.push_back(idx);
+            surface_triangles_.push_back(idx_down);
+            surface_triangles_.push_back(idx_diag);
+
+            // triangle 2
+            surface_triangles_.push_back(idx);
+            surface_triangles_.push_back(idx_diag);
+            surface_triangles_.push_back(idx_right);
+        }
+    }
 
     // test the results to avoid bulgy memory leaks
 

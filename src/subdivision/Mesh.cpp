@@ -63,14 +63,77 @@ void SubdivisionMesh::subdivide()
       *         for(auto hv : halfedges(v)) -->  loop through all outgoing halfedges of `Vertex v`
       */
 
+    for (auto f : faces())
+    {
+        Point fp(0);
+        int n = 0;
+        for (auto v : vertices(f))
+        {
+            fp += points[v];
+            ++n;
+        }
+        fpoint[f] = fp / static_cast<float>(n); 
+    }
 
-    // assign new positions to old vertices
+    for (auto e : edges())
+    {
+        Vertex v0 = vertex(e, 0);
+        Vertex v1 = vertex(e, 1);
+
+        if (is_boundary(e))
+        {
+            epoint[e] = (points[v0] + points[v1]) * 0.5f;
+        }
+        else
+        {
+            Face f0 = face(e, 0);
+            Face f1 = face(e, 1);
+            epoint[e] = (points[v0] + points[v1] + fpoint[f0] + fpoint[f1]) * 0.25f;
+        }
+    }
+
+    for (auto v : vertices())
+    {
+        if (is_boundary(v))
+        {
+            Point sum(0.0f);
+            int count = 0;
+
+            for (auto h : halfedges(v))
+            {
+                if (is_boundary(h))
+                {
+                    Vertex vv = to_vertex(h);
+                    sum += points[vv];
+                    ++count;
+                }
+            }
+
+            if (count == 2)
+                vpoint[v] = 0.75f * points[v] + 0.125f * sum;
+            else
+                vpoint[v] = points[v]; 
+        }
+        else
+        {
+            Point F(0); 
+            for (auto f : faces(v)) F += fpoint[f];
+            F /= static_cast<float>(valence(v));
+
+            Point R(0); 
+            for (auto vv : vertices(v)) R += points[vv];
+            R /= static_cast<float>(valence(v));
+
+            int n = valence(v);
+            vpoint[v] = (F + 2.0f * R + (n - 3.0f) * points[v]) / static_cast<float>(n);
+        }
+    }
+
     for (auto v : vertices())
     {
         points[v] = vpoint[v];
     }
 
-    // split edges
     for (auto e : edges())
     {
         insert_vertex(e, epoint[e]);

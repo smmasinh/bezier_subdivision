@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -fopenmp -ggdb -g -shared -Wl,-soname,libpmp.so -o ../../libpmp.so CMakeFiles/pmp.dir/SurfaceMesh.cpp.o CMakeFiles/pmp.dir/SurfaceMeshIO.cpp.o CMakeFiles/pmp.dir/Version.cpp.o CMakeFiles/pmp.dir/algorithms/SurfaceNormals.cpp.o 

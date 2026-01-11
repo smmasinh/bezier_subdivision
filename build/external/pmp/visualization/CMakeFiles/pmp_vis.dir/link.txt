@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../libpmp_vis.a CMakeFiles/pmp_vis.dir/MeshViewer.cpp.o CMakeFiles/pmp_vis.dir/Shader.cpp.o CMakeFiles/pmp_vis.dir/SurfaceMeshGL.cpp.o CMakeFiles/pmp_vis.dir/TrackballViewer.cpp.o CMakeFiles/pmp_vis.dir/Window.cpp.o
+/usr/bin/ranlib ../../../libpmp_vis.a
